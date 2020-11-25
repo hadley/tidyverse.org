@@ -1,0 +1,109 @@
+---
+output: hugodown::hugo_document
+
+slug: here-1-0-0
+title: here 1.0.0 and rprojroot 2.0.2
+date: 2020-11-15
+author: Kirill Müller
+description: >
+    here offers a simple way to find your files in a project-oriented workflow.
+    Under the hood, rprojroot implements the logic.
+    Version 1.0.0 introduces a new way to declare the project root, and brings a few other features.
+
+photo:
+  url: https://unsplash.com/photos/C2zhShTnl5I
+  author: Nick Fewings
+
+# one of: "deep-dive", "learn", "package", "programming", or "other"
+categories: [package] 
+tags: []
+---
+
+<!--
+TODO:
+* [x] Pick category and tags (see existing with `post_tags()`)
+* [x] Find photo & update yaml metadata
+* [x] Create `thumbnail-sq.jpg`; height and width should be equal
+* [x] Create `thumbnail-wd.jpg`; width should be >5x height
+* [x] `hugodown::use_tidy_thumbnail()`
+* [ ] Add intro sentence
+* [ ] `use_tidy_thanks()`
+-->
+
+We're chuffed to announce the release of [here](https://here.r-lib.org/) 1.0.0 and [rprojroot](https://rprojroot.r-lib.org/) 2.0.2.
+here offers a simple way to find your files in a [project-oriented workflow](https://rstats.wtf/project-oriented-workflow.html).
+Under the hood, rprojroot implements the logic.
+Version 1.0.0, the first update since the original CRAN release, introduces a new way to declare the project root.
+This release also includes an overhaul of the documentation and added safety for path construction.
+
+You can install it from CRAN with:
+
+```{r, eval = FALSE}
+install.packages("here")
+```
+
+This blog post shows the two most important user-facing changes: declaring the project root in your scripts and reports, and mixing project-relative and absolute paths. 
+You can see a full list of changes in the release notes for [here](https://here.r-lib.org/news/index.html) and [rprojroot](https://rprojroot.r-lib.org/news/index.html).
+
+## Here I am!
+
+The source of this blog post lives in the `index.Rmd` file in the `content/blog/here-1-0-0` subdirectory of the [tidyverse.org](https://github.com/tidyverse/tidyverse.org) repository.
+It declares its own location:
+
+```{r}
+here::i_am("content/blog/here-1-0-0/index.Rmd")
+```
+
+A message describes the location of the project root on my machine.
+It is probably different on your machine, the purpose of the here package is to help with that situation.
+
+After establishing the project root, the `here()` function helps navigate the project.
+
+```{r}
+library(here)
+library(conflicted)
+
+dir(here("content", "blog", "here-1-0-0"))
+dir(here("content/blog/here-1-0-0"))
+strwrap(readLines(here("CODE_OF_CONDUCT.md"), 5))
+```
+
+You can still load[^attach] the here package without calling `here::i_am()`.
+The new approach resolves ambiguity and also protects against running the file in the wrong project or outside of a project:
+
+[^attach]: attach with `library()`
+
+```{r error = TRUE}
+here::i_am("foo/bar.R")
+```
+
+Read more at `vignette("here", package = "here")`.
+
+
+## Absolute vs. relative paths
+
+The result of `here()` is always a character vector with absolute paths.
+Prior to rprojroot 2.0.2, passing absolute paths to `here()` resulted in garbage.
+The update modifies this behavior: if the first argument to `here()` is an absolute path, the project root is ignored and `here()` works like `file.path()`:
+
+```{r}
+blog_path <- here("content/blog/here-1-0-0")
+blog_path
+here("content/blog/here-1-0-0", "index.Rmd")
+here(blog_path, "index.Rmd")
+```
+
+This allows mixing project-relative and absolute paths without compromising on safety.
+
+
+## Acknowledgements
+
+We would like to thank the contributors who have helped with this release with pull requests and discussion.
+
+### here
+
+[&#x0040;ABcreation98](https://github.com/ABcreation98), [&#x0040;Alanocallaghan](https://github.com/Alanocallaghan), [&#x0040;antass](https://github.com/antass), [&#x0040;batpigandme](https://github.com/batpigandme), [&#x0040;boshek](https://github.com/boshek), [&#x0040;cderv](https://github.com/cderv), [&#x0040;chris-prener](https://github.com/chris-prener), [&#x0040;cloversleaves](https://github.com/cloversleaves), [&#x0040;cportner](https://github.com/cportner), [&#x0040;czeildi](https://github.com/czeildi), [&#x0040;ghost](https://github.com/ghost), [&#x0040;hadley](https://github.com/hadley), [&#x0040;ijlyttle](https://github.com/ijlyttle), [&#x0040;JamesCuster](https://github.com/JamesCuster), [&#x0040;jasonpott](https://github.com/jasonpott), [&#x0040;jennybc](https://github.com/jennybc), [&#x0040;karldw](https://github.com/karldw), [&#x0040;kpjonsson](https://github.com/kpjonsson), [&#x0040;lgaborini](https://github.com/lgaborini), [&#x0040;LTzavella](https://github.com/LTzavella), [&#x0040;moodymudskipper](https://github.com/moodymudskipper), [&#x0040;NoushinN](https://github.com/NoushinN), [&#x0040;nzgwynn](https://github.com/nzgwynn), [&#x0040;pjrdata](https://github.com/pjrdata), [&#x0040;prosoitos](https://github.com/prosoitos), [&#x0040;rajanand](https://github.com/rajanand), [&#x0040;robertamezquita](https://github.com/robertamezquita), [&#x0040;Sebaristoteles](https://github.com/Sebaristoteles), [&#x0040;sharlagelfand](https://github.com/sharlagelfand), [&#x0040;smach](https://github.com/smach), [&#x0040;solarchemist](https://github.com/solarchemist), [&#x0040;StevenHibble](https://github.com/StevenHibble), [&#x0040;StevenMMortimer](https://github.com/StevenMMortimer), [&#x0040;swayson](https://github.com/swayson), and [&#x0040;yogat3ch](https://github.com/yogat3ch).
+
+### rprojroot
+
+[&#x0040;BarkleyBG](https://github.com/BarkleyBG), [&#x0040;batpigandme](https://github.com/batpigandme), [&#x0040;ctbrown](https://github.com/ctbrown), [&#x0040;florisvdh](https://github.com/florisvdh), [&#x0040;hadley](https://github.com/hadley), [&#x0040;hansvancalster](https://github.com/hansvancalster), [&#x0040;jennybc](https://github.com/jennybc), [&#x0040;jonathan-g](https://github.com/jonathan-g), [&#x0040;jthurner](https://github.com/jthurner), [&#x0040;kslays](https://github.com/kslays), [&#x0040;moodymudskipper](https://github.com/moodymudskipper), [&#x0040;uribo](https://github.com/uribo), and [&#x0040;yonicd](https://github.com/yonicd).
