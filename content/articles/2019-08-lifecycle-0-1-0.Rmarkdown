@@ -1,0 +1,277 @@
+---
+title: 'lifecycle 0.1.0'
+author: Lionel Henry
+date: '2019-08-02'
+slug: lifecycle-0-1-0
+description: >
+  lifecycle 0.1.0 is now on CRAN!
+categories:
+  - package
+photo:
+  url: https://unsplash.com/photos/hnUUZMxQwYk
+  author: Nathana blt
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE, comment = "#>"
+)
+```
+
+```{r crayon, include = FALSE}
+colourise_chunk <- function(x, options) {
+  x <- pkgdown:::escape_html(x)
+  sprintf(
+    '<div class = "output"><pre class="knitr %s">%s</pre></div>\n',
+    tolower(options$engine),
+    fansi::sgr_to_html(x)
+  )
+}
+knitr::knit_hooks$set(
+  output = colourise_chunk,
+  message = colourise_chunk,
+  warning = colourise_chunk,
+  error = colourise_chunk
+)
+
+options(crayon.enabled = TRUE)
+```
+
+
+It is with unmeasured exhilaration that we announce the release of [lifecycle 0.1.0](https://lifecycle.r-lib.org) on CRAN. lifecycle is a toolkit for managing the lifecycle of your exported functions with shared conventions, documentation badges, and non-invasive deprecation warnings.
+
+The main goal of lifecycle is to provide a standard for communicating the evolution of your exported API to your users. It achieves this by:
+
+* Defining a set of stages that a function or argument can be in.
+
+* Providing badges for each lifecycle stage that you can insert in your documentation.
+
+* Providing a set of functions to signal deprecation warnings with increasing levels of non-invasive verbosity.
+
+We started using these tools and conventions in r-lib and tidyverse packages a few months ago. We now make them available for all package developers. In this post, we'll briefly present the lifecycle workflow. Read the [Get started](http://lifecycle.r-lib.org/articles/lifecycle.html) vignette for a more complete description. Install the package from CRAN with:
+
+```{r, eval = FALSE}
+install.packages("lifecycle")
+```
+
+
+## Lifecycle stages
+
+The stages for functions and arguments are modelled after the [lifecycle stages for packages](https://www.tidyverse.org/lifecycle/).  There are four __development__ stages and four __termination__ stages.
+
+
+### Development stages
+
+The objective of the development stages is to find the right balance between exposing the function to too few users and too many users. If an experimental function is exclusively available in a development branch on Github, the author probably won't get a lot of feedback about its interface and its behaviour. If a function is exported and published on CRAN without any indication that it is experimental, too many people might start using it in other packages and in production code, unaware that the function is likely to change in the future.
+
+<img src="/images/lifecycle/lifecycle-experimental.svg" alt = "Experimental" style="vertical-align:middle" /> An __experimental__ feature is in the very early stage of development. It is exported so users can start to use it and report feedback, but its interface and/or behaviour is likely to change in the future. It is generally best to avoid depending on experimental features in packages or production code.
+
+<img src="/images/lifecycle/lifecycle-maturing.svg" alt = "Maturing" style="vertical-align:middle" /> The interface and behaviour of a __maturing__ feature has been roughed out, but finer details are likely to change. It still needs more feedback to find the optimal API.
+
+<img src="/images/lifecycle/lifecycle-stable.svg" alt = "Stable" style="vertical-align:middle" /> A feature is considered __stable__ when the author is happy with its interface and behaviour. Major changes are unlikely, and breaking changes will occur gradually, through a deprecation process.
+
+<img src="/images/lifecycle/lifecycle-questioning.svg" alt = "Questioning" style="vertical-align:middle" /> In the __questioning__ stage, the author is no longer convinced that the feature is the optimal approach. However, there are no recommended alternatives yet.
+
+
+### Termination stages
+
+When the author is no longer happy with a feature because they consider it sub-optimal compared to some other approach, or simply because they no longer have the time to maintain it, it is no longer under development. In that case there are two possibilities: the feature may be kept in the package indefinitely for backward compatibility, or it can be removed from the package if the maintainer is prepared to make an API breakage.
+
+
+#### Retired stage
+
+<img src="/images/lifecycle/lifecycle-retired.svg" alt = "Retired" style="vertical-align:middle" /> A __retired__ feature is no longer under active development, and a known better alternative is available. However, it is indefinitely kept in the package for backward compatibility. The author only makes the necessary changes to ensure that the function continues working. No new features will be added, and only the most critical of bugs will be fixed.
+
+
+#### Deprecation stages
+
+<img src="/images/lifecycle/lifecycle-soft-deprecated.svg" alt = "Soft-Deprecated" style="vertical-align:middle" /> A __soft-deprecated__ feature can still be used without hassle, but users should consider switching to an alternative approach.
+
+<img src="/images/lifecycle/lifecycle-deprecated.svg" alt = "Deprecated" style="vertical-align:middle" /> A __deprecated__ feature is likely to be discontinued in the next major release. Users should switch to an alternative approach as soon as possible. In the tidyverse, we strive to keep deprecated functions around for at least a year.
+
+<img src="/images/lifecycle/lifecycle-defunct.svg" alt = "Defunct" style="vertical-align:middle" /> A __defunct__ function is still exported, and a defunct argument is still part of the signature. However, the feature can no longer be used, it now throws an informative error. In the tidyverse, we keep defunct functions around for a long time, so that users running old code with new packages still get pointed in the right direction for updating their scripts.
+
+
+### Adding lifecycle badges in documentation
+
+You can insert the lifecycle badges anywhere in your documentation. First import the badges in your package:
+
+```{r, eval = FALSE}
+# At the time of writing, you need the development version of usethis
+remotes::install_github("r-lib/usethis")
+usethis::use_lifecycle()
+```
+
+Then use the Rd macro `\lifecycle{stage}`:
+
+```{r, eval = FALSE}
+#' \lifecycle{experimental}
+#' \lifecycle{soft-deprecated}
+```
+
+You typically don't need to advertise the status of a function if it is the same lifecycle stage as the host package. For instance, if your package is [maturing](https://www.tidyverse.org/lifecycle/#maturing), only signal functions in the experimental, stable, questioning stages, or deprecated stages. Declare the lifecycle stage of your package by adding a badge to your README file with `usethis::use_lifecycle_badge()`.
+
+A good place to include the lifecycle badge of a function is at the top of the `@description` block. If the function is deprecated, we recommend marking it as internal so it no longer appear in the help index:
+
+```{r, eval = FALSE}
+#' Recoup some local heads outside the sent staged changes
+#'
+#' @description
+#'
+#' \lifecycle{soft-deprecated}
+#'
+#' `git_recoup_head()` recoups any non-indexed downstream heads before a
+#' few relinked local archives.
+#'
+#' @keywords internal
+```
+
+The lifecycle stage of your function is now clearly indicated in its documentation topic:
+
+```{r echo = FALSE}
+knitr::include_graphics("/images/lifecycle/recoup-deprecated.png")
+```
+
+To document the lifecycle stage of an argument, insert the badge in the argument description:
+
+```{r, eval = FALSE}
+#' @param indict_branch \lifecycle{deprecated}
+#'
+#'   If `FALSE`, `git_blend_tag()` parses references from
+#'   the filter-branched upstream.
+```
+
+```{r, echo = FALSE}
+knitr::include_graphics("/images/lifecycle/indict-deprecated.png")
+```
+
+
+## Verbosity of deprecation
+
+Deprecated functions use warnings to signal that you need to update your code. lifecycle tries to do this in a non-invasive way, as too many warnings are almost as annoying as an error. To avoid overwhelming you with warnings, lifecycle only warns the first time a deprecated function is used.
+
+There are two levels of verbosity for deprecated functions, depending on the lifecycle stage. For soft-deprecated features, the verbosity level is minimal. No warning is issued unless the function is called directly from the global environment or from unit tests. This encourages package developers to update their code while minimally affecting people doing data analysis.
+
+*   To signal (soft-)deprecation warnings, use `deprecate_soft()` and `deprecate_warn()`:
+
+    ```{r, include = FALSE}
+    # Soft-deprecation warnings are suppressed in the knitr eval env
+    options(lifecycle_verbosity = "warning")
+    ```
+    ```{r}
+    lifecycle::deprecate_soft("0.5.0", "mypkg::foo()")
+    ```
+    ```{r, include = FALSE}
+    options(lifecycle_verbosity = "default")
+    ```
+
+    ```{r}
+    lifecycle::deprecate_warn("0.4.0", "mypkg::bar()")
+    ```
+
+    You can optionally provide a replacement which will be mentioned in the warning message:
+
+    ```{r}
+    lifecycle::deprecate_warn("0.4.0", "mypkg::bar()", "otherpkg::quux()")
+    ```
+
+*   When a function is ready to be effectively discontinued, use `defunct_stop()`:
+
+    ```{r, error = TRUE}
+    lifecycle::deprecate_stop("0.4.0", "mypkg::bar()")
+    ```
+
+*   Provide additional details about the deprecation with the `details` argument:
+
+    ```{r}
+    details <- "Why this is discontinued"
+    lifecycle::deprecate_warn("0.4.0", "mypkg::bar()", details = details)
+    ```
+
+*   Finally, signal deprecated arguments with the following syntax:
+
+    ```{r}
+    lifecycle::deprecate_warn("0.4.0", "mypkg::bar(old = )", "mypkg::bar(new = )")
+    ```
+
+
+## Deprecation of arguments
+
+Deprecating arguments requires a little more work than deprecating functions because you need to make sure the function still interprets the argument correctly when it is supplied by the user. To help with this, lifecycle provides the `deprecated()` sentinel. All it does is return the missing argument, so you can test whether the argument was supplied explicitly with `rlang::is_missing()` (note that `base::missing()` doesn't work here because it doesn't support complex expressions). If you find the argument non-missing, signal the deprecation warning and handle the user input for compatibility:
+
+```{r}
+git_recoup_head <- function(unwind_head = TRUE, indict_branch = deprecated()) {
+  if (!rlang::is_missing(indict_branch)) {
+    # Signal deprecation
+    lifecycle::deprecate_warn(
+      when = "1.0.0",
+      what = "git_recoup_head(indict_branch = )",
+      with = "git_recoup_head(unwind_head = )"
+    )
+
+    # Compatibility
+    unwind_head <- indict_branch
+  }
+
+  ...
+
+  message("Recouped head of git repo")
+}
+```
+
+
+## Finding and fixing deprecated functions
+
+If you see sporadic deprecation warnings, it can be difficult to exactly pinpoint their precise locations. The lifecycle package provides a few tools to help detecting the usage sites of deprecated features.
+
+Say we have a function that calls a second function, possibly from another package, which relies on deprecated features:
+
+```{r}
+myfunction <- function() otherfunction()
+
+feature1 <- function() lifecycle::deprecate_soft("0.1.0", "foo::feature1()")
+feature2 <- function() lifecycle::deprecate_soft("0.1.0", "foo::feature2()")
+otherfunction <- function() invisible(list(feature1(), feature2()))
+
+myfunction()
+```
+
+The first step to find out where the warnings are coming from is to make the warnings systematic. The verbosity of warnings is easily controlled with the global option `lifecycle_verbosity`. It can be set to `"quiet"`, `"default"`, `"warning"`, or `"error"`:
+
+```{r, error = TRUE}
+options(lifecycle_verbosity = "error")
+myfunction()
+```
+
+When verbosity is set to `"warning"`, the deprecation warnings are no longer signalled once-per-session but everytime the deprecated feature is used:
+
+```{r, error = TRUE}
+options(lifecycle_verbosity = "warning")
+myfunction()
+```
+
+Now call `lifecycle::last_warnings()` to get a list of all warnings signalled during the last command. Each warning is displayed with a simplified backtrace, a summary of the state of R when the warning was triggered:
+
+```{r, results = "hide"}
+lifecycle::last_warnings()
+```
+
+```{r, echo = FALSE}
+warnings <- list(structure(list(message = "`feature1()` is deprecated as of foo 0.1.0.\n\033[90mThis warning is displayed once per session.\033[39m\n\033[90mCall `lifecycle::last_warnings()` to see where this warning was generated.\033[39m", 
+    trace = structure(list(calls = alist(global::myfunction(), 
+        global::otherfunction(), global::feature1(), lifecycle::deprecate_soft("0.1.0", 
+            "foo::feature1()")), parents = 0:3, envs = list("0x7fa6798b5bc8", 
+        "0x7fa6798b5ca8", "0x7fa6798b1fc8", "0x7fa6788c22e0"), 
+        indices = 1:4), class = "rlang_trace")), class = c("lifecycle_warning_deprecated", 
+"warning", "condition")), structure(list(message = "`feature2()` is deprecated as of foo 0.1.0.\n\033[90mThis warning is displayed once per session.\033[39m\n\033[90mCall `lifecycle::last_warnings()` to see where this warning was generated.\033[39m", 
+    trace = structure(list(calls = alist(global::myfunction(), 
+        global::otherfunction(), global::feature2(), lifecycle::deprecate_soft("0.1.0", 
+            "foo::feature2()")), parents = 0:3, envs = list("0x7fa6798b5bc8", 
+        "0x7fa6798b5ca8", "0x7fa676c35628", "0x7fa676c37b68"), 
+        indices = 1:4), class = "rlang_trace")), class = c("lifecycle_warning_deprecated", 
+"warning", "condition")))
+
+warnings
+```
+
+If you find that the warning originates from a different package, please contact the maintainer to let them know they should update their functions so their package doesn't break in the future.
