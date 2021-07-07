@@ -1,0 +1,265 @@
+---
+output: hugodown::hugo_document
+
+slug: readr-2-0-0
+title: readr 2.0.0
+date: 2021-07-06
+author: Jim Hester
+description: |
+  This major release of readr includes a new multi-threaded parsing engine powered by vroom and a 
+  number of user interface improvements.
+photo:
+  url: https://unsplash.com/photos/XOW1WqrWNKg
+  author: Anastasia Zhenina
+categories:
+  - package
+---
+
+We're thrilled to announce the release of [readr](https://readr.tidyverse.org/) 2.0.0!
+
+The readr package makes it easy to get rectangular data out of comma separated
+(csv), tab separated (tsv) or fixed width files (fwf) and into R. It
+is designed to flexibly parse many types of data found in the wild, while still
+cleanly failing when data unexpectedly changes.
+
+The easiest way to install the latest version from CRAN is to install the whole tidyverse.
+
+```{r eval = FALSE}
+install.packages("tidyverse")
+```
+
+Alternatively, install just readr from CRAN:
+
+```{r eval = FALSE}
+install.packages("readr")
+```
+
+This blog post will show off the most important changes to the package.
+
+You can see a full list of changes in the [readr release notes](https://github.com/r-lib/readr/releases) and [vroom release notes](https://github.com/r-lib/vroom/releases).
+
+```{r setup}
+library(readr)
+```
+
+## readr edition two
+
+Readr 2.0.0 is a major release of readr and introduces a new second edition parsing and writing engine implemented via the [vroom](https://vroom.r-lib.org/) package.
+
+This engine takes advantage of lazy reading, multi-threading and performance characteristics of modern SSD drives to significantly improve the performance of reading and writing compared to the first edition engine.
+
+We will continue to support the first edition for a number of releases, but eventually this support will be first deprecated and then removed.
+
+You can use the `with_edition()` or `local_edition()` functions to temporarily change the edition of readr for a section of code.
+
+e.g.
+
+- `with_edition(1, read_csv("my_file.csv"))` will read `my_file.csv` with the first edition of readr.
+
+- `readr::local_edition(1)` placed at the top of your function or script will use the first edition for the rest of the function or script.
+
+## Reading multiple files at once
+
+Edition two has built-in support for reading sets of files with the
+same columns into one output table in a single command.
+Just pass the filenames to be read in the same vector to the reading function.
+
+First we generate some files to read by splitting the nycflights dataset by
+airline.
+
+```{r}
+library(nycflights13)
+purrr::iwalk(
+  split(flights, flights$carrier),
+  ~ { .x$carrier[[1]]; vroom::vroom_write(.x, glue::glue("flights_{.y}.tsv"), delim = "\t") }
+)
+```
+
+Then we can efficiently read them into one tibble by passing the filenames
+directly to readr.
+
+```{r}
+files <- fs::dir_ls(glob = "flights*tsv")
+files
+readr::read_tsv(files)
+```
+
+If the filenames contain data, such as the date when the sample was collected,
+use `id` argument to include the paths as a column in the data.
+You will likely have to post-process the paths to keep only the relevant portion for your use case.
+
+## Delimiter guessing
+
+Edition two supports automatic guessing of delimiters.
+Because of this you can now use `read_delim()` without specifying a `delim` argument in many cases.
+
+```{r}
+x <- read_delim(readr_example("mtcars.csv"))
+```
+
+## New column specification output
+
+On Feburary 11, 2021 we conducted a [survey on twitter](https://twitter.com/jimhester_/status/1359969288501739528) asking for the community's opinion on the column specification output.
+We recieved over 750 responses to the survey!
+It revealed some useful information.
+
+- 3/4 of respondents found printing the column specifications helpful.
+- 2/3 of respondents preferred the edition output vs legacy output.
+- Only 1/5 of respondents correctly knew how to supress printing of the column specifications.
+
+Based on these results we have added two new ways to more easily suppress the column specification printing.
+
+- Use `read_csv(show_col_types = FALSE)` to disable printing for a single function call.
+- Use `options(readr.show_types = FALSE)` to disable printing for the entire session.
+
+We will also continue to print the column specifications with the new output.
+
+Note you can still obtain the old output style by printing the column specification object directly.
+
+```{r}
+spec(x)
+```
+
+Or the new style by calling `summary()` on the specification object.
+```{r}
+summary(spec(x))
+```
+
+## Column selection
+
+Edition two introduces a new argument, `col_select`, which makes selecting columns to
+keep (or omit) more straightforward than before.
+
+ `col_select` uses the same interface as `dplyr::select()`, so you can perform very flexible selection operations.
+
+Select with the column names directly.
+
+```{r}
+data <- read_tsv("flights_AA.tsv", col_select = c(year, flight, tailnum))
+```
+
+Or by numeric column.
+```{r}
+data <- read_tsv("flights_AA.tsv", col_select = c(1, 2))
+```
+
+Drop columns by name by prefixing them with `-`.
+```{r}
+data <- read_tsv("flights_AA.tsv", col_select = c(-dep_time, -air_time:-time_hour))
+```
+
+Use the selection helpers such as `ends_with()`.
+```{r}
+data <- read_tsv("flights_AA.tsv", col_select = ends_with("time"))
+```
+
+Or even rename columns by using a named list.
+```{r}
+data <- read_tsv("flights_AA.tsv", col_select = list(plane = tailnum, everything()))
+data
+```
+
+## Name repair
+
+Often the names of columns in the original dataset are not ideal to work with.
+Edition two uses the same [name_repair](https://www.tidyverse.org/articles/2019/01/tibble-2.0.1/#name-repair)
+argument as in the tibble package, so you can use one of the default name repair strategies or
+provide a custom function.
+One useful approach is to use the
+[janitor::make_clean_names()](http://sfirke.github.io/janitor/).
+
+```{r, message = FALSE}
+read_tsv("flights_AA.tsv", name_repair = janitor::make_clean_names)
+
+read_tsv("flights_AA.tsv", name_repair = ~ janitor::make_clean_names(., case = "lower_camel"))
+```
+
+```{r, show = FALSE}
+unlink(files)
+```
+
+## UTF-16 and UTF-32 support
+
+Edition two now has much better support for UTF-16 and UTF-32 multi-byte unicode encodings.
+When files with these encodings are read they are automatically converted to UTF-8 internally in an efficient streaming fashion.
+
+## Lazy reading
+
+Edition two uses lazy reading by default.
+When you first call a `read_*()` function the delimiters and newlines throughout the entire file are found, but the data is not actually read until it is used in your program.
+This can provide substantial speed improvements for reading character data.
+It is particularly useful during interactive exploration of only a subset of a full dataset.
+
+However this also means that problematic values are not necessarily seen
+immediately, only when they are actually read.
+Because of this a warning will be issued the first time a problem is encountered,
+which may happen after initial reading.
+
+Run `problems()` on your dataset to read the entire dataset and return all of the problems found.
+Run `problems(lazy = TRUE)` if you only want to retrieve the problems found so far.
+
+Deleting files after reading is also impacted by laziness.
+On Windows open files cannot be deleted as long as a process has the file open.
+Because readr keeps a file open when reading lazily this means you cannot read, then immediately delete the file.
+readr will in most cases close the file once it has been completely read.
+However, if you know you want to be able to delete the file after reading it is best to pass `lazy = FALSE` when reading the file.
+
+## Control over quoting and escaping when writing
+
+You can now explicitly control how fields are quoted and escaped when writing with the `quote` and `escape` arguments to `write_*()` functions.
+
+`quote` has three options.
+
+1. 'needed' - which will quote fields only when needed.
+2. 'all' - which will always quote all fields.
+3. 'none' - which will never quote any fields.
+
+`escape` also has three options, to control how quote characters are escaped.
+
+1. 'double' - which will use double quotes to escape quotes.
+2. 'backslash' - which will use a backslash to escape quotes.
+3. 'none' - which will not do anything to escape quotes.
+
+We hope these options will give people the flexibility they need when writing files using readr.
+
+## Literal data
+
+In edition one the reading functions treated any input with a newline in it or vectors of length > 1 as literal data.
+In edition two vectors of length > 1 are now assumed to correspond to multiple files.
+Because of this we now have a more explicit way to represent literal data, by putting `I()` around the input.
+
+```{r}
+readr::read_csv(I("a,b\n1,2"))
+```
+
+## Lighter installation requirements
+
+readr now should be much easier to install.
+Previous versions of readr used the Boost C++ library to do some of the numeric parsing.
+While these are well written, robust libraries, the BH package which contains them has a large number of files (1500+) which can take a long time to install.
+In addition the code within these headers is complicated and can take a large amount of memory (2+ Gb) to compile, which made it challenging to compile readr from source in some cases.
+
+readr no longer depends on Boost or the BH package, so should compile more quickly in most cases.
+
+## Deprecated functions and features
+
+* `melt_csv()`, `melt_delim()`, `melt_tsv()` and `melt_fwf()` have been deprecated.
+  These functions rely on the first edition parsing code and would be challenging to update to the new parser.
+  When the first edition parsing code is eventually removed from readr they will be split off into a new package.
+
+* `read_table2()` has been renamed to `read_table()`, as most users expect `read_table()` to work like `utils::read.table()`.
+  If you want the previous strict behavior of the `read_table()` you can use `read_fwf()` with `fwf_empty()` directly (#717).
+
+* Normalizing newlines in files with just carriage returns `\r` is no longer supported.
+  The last major OS to use only CR as the newline was 'classic' Mac OS, which had its final release in 2001.
+
+## License changes
+
+We are systematically re-licensing tidyverse and r-lib packages to use the MIT license, to make our package licenses as clear and permissive as possible.
+
+To this end the readr and vroom packages are now released under the MIT license.
+
+## Acknowledgements
+
+A big thanks to everyone who helped make this release possible by testing the development vearsions, asking questions, providing reprexes, writing code and more!
+[&#x0040;Aariq](https://github.com/Aariq), [&#x0040;adamroyjones](https://github.com/adamroyjones), [&#x0040;antoine-sachet](https://github.com/antoine-sachet), [&#x0040;basille](https://github.com/basille), [&#x0040;batpigandme](https://github.com/batpigandme), [&#x0040;benjaminhlina](https://github.com/benjaminhlina), [&#x0040;bigey](https://github.com/bigey), [&#x0040;billdenney](https://github.com/billdenney), [&#x0040;binkleym](https://github.com/binkleym), [&#x0040;BrianOB](https://github.com/BrianOB), [&#x0040;cboettig](https://github.com/cboettig), [&#x0040;CTMCBP](https://github.com/CTMCBP), [&#x0040;Dana996](https://github.com/Dana996), [&#x0040;DarwinAwardWinner](https://github.com/DarwinAwardWinner), [&#x0040;deeenes](https://github.com/deeenes), [&#x0040;dernst](https://github.com/dernst), [&#x0040;dicorynia](https://github.com/dicorynia), [&#x0040;estroger34](https://github.com/estroger34), [&#x0040;FixTestRepeat](https://github.com/FixTestRepeat), [&#x0040;GegznaV](https://github.com/GegznaV), [&#x0040;giocomai](https://github.com/giocomai), [&#x0040;GiuliaPais](https://github.com/GiuliaPais), [&#x0040;hadley](https://github.com/hadley), [&#x0040;HedvigS](https://github.com/HedvigS), [&#x0040;HenrikBengtsson](https://github.com/HenrikBengtsson), [&#x0040;hidekoji](https://github.com/hidekoji), [&#x0040;hongooi73](https://github.com/hongooi73), [&#x0040;hsbadr](https://github.com/hsbadr), [&#x0040;idshklein](https://github.com/idshklein), [&#x0040;jasyael](https://github.com/jasyael), [&#x0040;JeremyPasco](https://github.com/JeremyPasco), [&#x0040;jimhester](https://github.com/jimhester), [&#x0040;jonasfoe](https://github.com/jonasfoe), [&#x0040;jzadra](https://github.com/jzadra), [&#x0040;KasperThystrup](https://github.com/KasperThystrup), [&#x0040;keesdeschepper](https://github.com/keesdeschepper), [&#x0040;kingcrimsontianyu](https://github.com/kingcrimsontianyu), [&#x0040;KnutEBakke](https://github.com/KnutEBakke), [&#x0040;krlmlr](https://github.com/krlmlr), [&#x0040;larnsce](https://github.com/larnsce), [&#x0040;ldecicco-USGS](https://github.com/ldecicco-USGS), [&#x0040;M3IT](https://github.com/M3IT), [&#x0040;maelle](https://github.com/maelle), [&#x0040;martinmodrak](https://github.com/martinmodrak), [&#x0040;meowcat](https://github.com/meowcat), [&#x0040;messersc](https://github.com/messersc), [&#x0040;mewu3](https://github.com/mewu3), [&#x0040;mgperry](https://github.com/mgperry), [&#x0040;michaelquinn32](https://github.com/michaelquinn32), [&#x0040;MikeJohnPage](https://github.com/MikeJohnPage), [&#x0040;mine-cetinkaya-rundel](https://github.com/mine-cetinkaya-rundel), [&#x0040;msberends](https://github.com/msberends), [&#x0040;nbenn](https://github.com/nbenn), [&#x0040;niheaven](https://github.com/niheaven), [&#x0040;peranti](https://github.com/peranti), [&#x0040;petrbouchal](https://github.com/petrbouchal), [&#x0040;pfh](https://github.com/pfh), [&#x0040;pgramme](https://github.com/pgramme), [&#x0040;Raesu](https://github.com/Raesu), [&#x0040;rmcd1024](https://github.com/rmcd1024), [&#x0040;rmvpaeme](https://github.com/rmvpaeme), [&#x0040;sebneus](https://github.com/sebneus), [&#x0040;seth127](https://github.com/seth127), [&#x0040;Shians](https://github.com/Shians), [&#x0040;sonicdoe](https://github.com/sonicdoe), [&#x0040;svraka](https://github.com/svraka), [&#x0040;timothy-barry](https://github.com/timothy-barry), [&#x0040;tmalsburg](https://github.com/tmalsburg), [&#x0040;vankesteren](https://github.com/vankesteren), [&#x0040;xuqingyu](https://github.com/xuqingyu), and [&#x0040;yutannihilation](https://github.com/yutannihilation).
