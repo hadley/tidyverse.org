@@ -13,7 +13,7 @@ photo:
   url: https://unsplash.com/photos/n6vS3xlnsCc
   author: Kelley Bozarth
 
-# one of: "deep-dive", "learn", "package", "programming", or "other"
+# one of: "deep-dive", "learn", "package", "programming", "roundup", or "other"
 categories: [package] 
 tags: []
 ---
